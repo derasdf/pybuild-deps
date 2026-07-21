@@ -1,7 +1,9 @@
 .mypy_cache/
 /.coverage
 /.coverage.*
+/coverage.xml
 /.nox/
+/.venv/
 /.python-version
 /.pytype/
 /.tool-versions
