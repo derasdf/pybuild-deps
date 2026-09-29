@@ -8,7 +8,12 @@ of build dependencies.
 
 from __future__ import annotations
 
+import subprocess
+import sys
+import tempfile
 from collections.abc import Generator, Iterable
+from dataclasses import dataclass
+from pathlib import Path
 
 from pip._internal.exceptions import DistributionNotFound
 from pip._internal.req import InstallRequirement
@@ -18,10 +23,109 @@ from piptools.repositories import PyPIRepository
 from piptools.resolver import BacktrackingResolver
 from piptools.utils import key_from_ireq
 
-from .exceptions import UnsolvableDependenciesError
+from .exceptions import PyBuildDepsError, UnsolvableDependenciesError
 from .finder import find_build_dependencies
 from .logger import log
 from .utils import get_version
+
+
+@dataclass(frozen=True)
+class ResolvedDependency:
+    """A resolved package with name, version, and optional hashes."""
+
+    name: str
+    version: str
+    hashes: tuple[str, ...] = ()
+
+
+def _parse_compiled_output(text: str) -> list[ResolvedDependency]:
+    """Parse ``uv pip compile`` requirements output into ResolvedDependency.
+
+    Each pinned requirement is a ``name==version`` line, optionally followed
+    by ``--hash=`` continuation lines joined with a trailing backslash. Comment
+    lines (headers and ``# via`` annotations) are ignored.
+    """
+    results: list[ResolvedDependency] = []
+    buf = ""
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        buf = f"{buf} {line}" if buf else line
+        if buf.endswith("\\"):
+            buf = buf[:-1].strip()
+            continue
+        tokens = buf.split()
+        buf = ""
+        name, _, version = tokens[0].partition("==")
+        hashes = tuple(
+            t[len("--hash=") :] for t in tokens[1:] if t.startswith("--hash=")
+        )
+        results.append(ResolvedDependency(name=name, version=version, hashes=hashes))
+    return results
+
+
+def resolve_with_uv(
+    deps: list[str],
+    package: str,
+    constraints: list[str] | None = None,
+    generate_hashes: bool = False,
+) -> list[ResolvedDependency]:
+    """Resolve dependencies using uv pip compile.
+
+    Returns a list of ResolvedDependency with name, version, and optional
+    hashes. The requirements output format records every distribution hash
+    for each pinned version (matching pip-compile), unlike pylock.toml which
+    only records artifacts for the resolved environment.
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        reqs_file = Path(tmp_dir) / "requirements.in"
+        reqs_file.write_text("\n".join(deps) + "\n")
+
+        out_file = Path(tmp_dir) / "requirements.txt"
+
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+        cmd = [
+            "uv",
+            "pip",
+            "compile",
+            "--python-version",
+            python_version,
+            "-o",
+            str(out_file),
+            str(reqs_file),
+        ]
+
+        if generate_hashes:
+            cmd.append("--generate-hashes")
+
+        if constraints:
+            constraints_file = Path(tmp_dir) / "constraints.txt"
+            constraints_file.write_text("\n".join(constraints) + "\n")
+            cmd.extend(["-c", str(constraints_file)])
+
+        try:
+            result = subprocess.run(  # noqa: S603
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=300,
+            )
+        except FileNotFoundError as err:
+            raise PyBuildDepsError(
+                "uv is not installed or not on PATH. "
+                "Install it from https://docs.astral.sh/uv/"
+            ) from err
+        except subprocess.TimeoutExpired as err:
+            raise PyBuildDepsError(
+                f"Dependency resolution for '{package}' timed out after 300s"
+            ) from err
+
+        if result.returncode != 0:
+            raise UnsolvableDependenciesError(package, result.stderr.strip())
+
+        return _parse_compiled_output(out_file.read_text())
 
 
 class BuildDependencyCompiler:
