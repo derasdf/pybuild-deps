@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:monthly",
+    ":enableVulnerabilityAlerts",
+    ":disableDependencyDashboard"
+  ],
+  "enabledManagers": ["github-actions", "pep621", "pre-commit"],
+  // release-drafter buckets dependency PRs by the "dependencies" label;
+  // dependabot added it automatically, Renovate needs it set explicitly.
+  "labels": ["dependencies"],
+  "packageRules": []
+}
