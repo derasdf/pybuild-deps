@@ -22,6 +22,28 @@
       "matchManagers": ["github-actions"],
       "matchDepNames": ["python"],
       "enabled": false
+    },
+    // Disable only non-minor/patch types; disabling the whole manager stops
+    // all updates including vulnerability-alert PRs.
+    {
+      "description": "Disable non-minor/patch Python updates",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": [
+        "major",
+        "pin",
+        "pinDigest",
+        "digest",
+        "rollback",
+        "bump",
+        "replacement"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Group Python minor and patch updates (pyproject.toml + uv.lock)",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "python dependencies"
     }
   ]
 }
