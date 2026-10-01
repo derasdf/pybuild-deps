@@ -10,6 +10,13 @@
   // release-drafter buckets dependency PRs by the "dependencies" label;
   // dependabot added it automatically, Renovate needs it set explicitly.
   "labels": ["dependencies"],
+  // pep621 skips deps declared without a version specifier (gitpython, nox,
+  // tomli) and never bumps transitive deps. Refresh uv.lock wholesale to keep
+  // them current, matching the old Dependabot uv behavior.
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on the first day of the month"]
+  },
   "packageRules": [
     {
       "description": "Weekly grouped GitHub Actions updates",
