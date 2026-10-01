@@ -10,5 +10,18 @@
   // release-drafter buckets dependency PRs by the "dependencies" label;
   // dependabot added it automatically, Renovate needs it set explicitly.
   "labels": ["dependencies"],
-  "packageRules": []
+  "packageRules": [
+    {
+      "description": "Weekly grouped GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "extends": ["schedule:weekly"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Disable Python version updates in GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "matchDepNames": ["python"],
+      "enabled": false
+    }
+  ]
 }
