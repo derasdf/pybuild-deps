@@ -1,10 +1,11 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
-      - master
+  release:
+    types: [released]
+
+  # Re-run a failed release by hand. Dispatch from the tag; a branch fails the version check.
+  workflow_dispatch:
 
 jobs:
   release:
