@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import nox
@@ -52,6 +53,48 @@ def tests(session: Session) -> None:
             "--no-cov-on-fail",
         ]
     session.run("pytest", *args, *session.posargs)
+
+
+@nox.session(name="dist-check", python=python_versions[0])
+def dist_check(session: Session) -> None:
+    """Build the wheel and sdist, check them, and smoke-test each install.
+
+    The single source of the dist build and validation: CI runs it on every push
+    and PR, and the release workflow runs the same session before publishing, so
+    the two paths can't drift.
+    """
+    dist_dir = Path("dist")
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir)
+    # NO_COLOR: CI sets FORCE_COLOR, which would otherwise wrap the output in ANSI
+    # codes and break the version comparison below. NO_COLOR overrides FORCE_COLOR.
+    version = session.run(
+        "uv",
+        "version",
+        "--short",
+        env={"NO_COLOR": "1"},
+        external=True,
+        silent=True,
+    ).strip()
+    session.install("twine")
+    session.run("uv", "build", external=True)
+    dists = [*dist_dir.glob("*.whl"), *dist_dir.glob("*.tar.gz")]
+    session.run("twine", "check", *(str(dist) for dist in dists))
+
+    for dist in dists:
+        venv = Path(tempfile.mkdtemp(), "venv")
+        session.run("uv", "venv", str(venv), external=True)
+        python = venv / "bin" / "python"
+        session.run(
+            "uv", "pip", "install", "--python", str(python), str(dist), external=True
+        )
+        session.run(str(venv / "bin" / "pybuild-deps"), "--help", external=True)
+        check = (
+            "import importlib.metadata as m; "
+            f"assert m.version('pybuild-deps') == {version!r}, "
+            "m.version('pybuild-deps')"
+        )
+        session.run(str(python), "-c", check, external=True)
 
 
 @nox.session(name="e2e-tests", python=python_versions[0])
