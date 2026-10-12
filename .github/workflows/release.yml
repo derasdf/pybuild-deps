@@ -7,6 +7,12 @@ on:
   # Re-run a failed release by hand. Dispatch from the tag; a branch fails the version check.
   workflow_dispatch:
 
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build and validate
