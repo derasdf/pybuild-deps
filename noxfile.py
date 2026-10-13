@@ -91,8 +91,8 @@ def dist_check(session: Session) -> None:
         session.run(str(venv / "bin" / "pybuild-deps"), "--help", external=True)
         check = (
             "import importlib.metadata as m; "
-            f"assert m.version('pybuild-deps') == {version!r}, "
-            "m.version('pybuild-deps')"
+            f"assert m.version('pybuild-deps-dryrun-derasdf') == {version!r}, "
+            "m.version('pybuild-deps-dryrun-derasdf')"
         )
         session.run(str(python), "-c", check, external=True)
 

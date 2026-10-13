@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pybuild-deps"
-version = "0.5.0"
+name = "pybuild-deps-dryrun-derasdf"
+version = "0.5.1.dev0"
 description = "A simple tool for detection of PEP-517 build dependencies."
 readme = "README.md"
 license = "GPL-3.0-only"
